@@ -10,12 +10,12 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="💶 EUR/USD AI Signal", layout="wide")
 st.title("💶 EUR/USD AI Signal with Debugging")
 
-# 1. Define Parameters
+# Step 1: Define Parameters
 symbol = "EURUSD=X"
 interval = "1m"
 period = "1d"
 
-# 2. Fetch Data
+# Step 2: Fetch Data
 st.markdown(f"📥 **Fetching {interval} data for {symbol}...**")
 try:
     data = yf.download(tickers=symbol, interval=interval, period=period)
@@ -27,20 +27,20 @@ except Exception as e:
     st.error(f"❌ Error fetching data: {e}")
     st.stop()
 
-# 3. Check Required Columns
+# Step 3: Check Required Columns
 required_cols = ['Open', 'High', 'Low', 'Close']
 missing_cols = [col for col in required_cols if col not in data.columns]
 if missing_cols:
     st.error(f"❌ Missing columns in data: {missing_cols}")
     st.stop()
 
-# 4. Prepare Close Prices (ensure 1D)
+# Step 4: Prepare Close Prices (ensure 1D)
 close_prices = data['Close']
 if isinstance(close_prices, pd.DataFrame) or len(close_prices.shape) > 1:
     close_prices = close_prices.squeeze()
 st.success("✅ 'Close' prices ready.")
 
-# 5. RSI Calculation
+# Step 5: RSI Calculation
 try:
     rsi = RSIIndicator(close=close_prices).rsi()
     data['rsi'] = rsi
@@ -49,7 +49,7 @@ except Exception as e:
     st.error(f"❌ Error calculating RSI: {e}")
     data['rsi'] = np.nan
 
-# 6. Candle Strength Calculation
+# Step 6: Candle Strength Calculation
 try:
     data['candle_strength'] = (data['Close'] - data['Open']) / data['Open']
     candle_strength = data['candle_strength'].iloc[-1]
@@ -57,17 +57,16 @@ except Exception as e:
     candle_strength = None
     st.warning(f"⚠️ Candle strength error: {e}")
 
-# 7. Gap Detection
+# Step 7: Gap Detection
 try:
     gap = data['Open'].iloc[-1] - data['Close'].iloc[-2]
 except Exception as e:
     gap = None
     st.warning(f"⚠️ Gap detection error: {e}")
 
-# 8. Market Trend Detection
+# Step 8: Market Trend Detection
 def detect_trend(df):
-    # Convert recent closing prices to a list for safe comparison.
-    recent = df['Close'].tail(20).tolist()
+    recent = df['Close'].tail(20).tolist()  # convert to list for safe comparison
     if all(x < y for x, y in zip(recent, recent[1:])):
         return "Uptrend"
     elif all(x > y for x, y in zip(recent, recent[1:])):
@@ -82,7 +81,7 @@ except Exception as e:
     trend = "Unknown"
     st.warning(f"⚠️ Trend detection error: {e}")
 
-# 9. Support and Resistance Calculation
+# Step 9: Support and Resistance Calculation
 try:
     support = data['Low'].rolling(window=20).min().iloc[-1]
     resistance = data['High'].rolling(window=20).max().iloc[-1]
@@ -90,7 +89,7 @@ except Exception as e:
     support = resistance = None
     st.warning(f"⚠️ Support/Resistance error: {e}")
 
-# 10. Best Price (Pullback Zone)
+# Step 10: Best Price (Pullback Zone) Calculation
 try:
     pullback_zone = data['Close'].rolling(window=20).mean()
     if not pullback_zone.empty and not pd.isna(pullback_zone.iloc[-1]):
@@ -101,19 +100,18 @@ except Exception as e:
     best_price = None
     st.warning(f"⚠️ Error determining best price: {e}")
 
-# 11. Display Key Info
+# Step 11: Display Key Information
 st.markdown("### 📋 Market Snapshot")
 col1, col2, col3 = st.columns(3)
 col1.metric("🕯️ Candle Strength", f"{candle_strength:.5f}" if candle_strength is not None else "N/A")
 col2.metric("🔀 Gap", f"{gap:.5f}" if gap is not None else "N/A")
 col3.metric("📍 Best Price (Pullback)", f"{best_price:.5f}" if best_price is not None else "N/A")
-
 col4, col5 = st.columns(2)
 col4.metric("🟢 Support", f"{support:.5f}" if support is not None else "N/A")
 col5.metric("🔴 Resistance", f"{resistance:.5f}" if resistance is not None else "N/A")
 st.markdown(f"### 📊 Market Trend: `{trend}`")
 
-# 12. Plot Candlestick Chart with Key Levels
+# Step 12: Plot Candlestick Chart with Key Levels
 try:
     fig = go.Figure(data=[go.Candlestick(
         x=data.index,
@@ -124,7 +122,6 @@ try:
         name='Candles'
     )])
     fig.update_layout(title='EUR/USD 1m Candle Chart', xaxis_rangeslider_visible=False)
-    # Add support, resistance, and best price lines if available
     if support is not None:
         fig.add_hline(y=support, line_dash="dot", line_color="green", annotation_text="Support", opacity=0.4)
     if resistance is not None:
