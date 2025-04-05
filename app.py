@@ -63,22 +63,55 @@ except Exception as e:
     st.warning(f"⚠️ Candle strength error: {e}")
 
 # ----------------------------------------------------
-# Step 7: Gap Detection
-try:
-    gap = data['Open'].iloc[-1] - data['Close'].iloc[-2]
-except Exception as e:
-    gap = None
-    st.warning(f"⚠️ Gap detection error: {e}")
+# Step 7: Gap Detection (New Function)
+def find_last_gap(df, lookback=20):
+    """
+    Finds the most recent gap event within the last 'lookback' candles.
+    Returns a dict with:
+      - gap_direction: "Gap Up" or "Gap Down"
+      - candle_color: "Bullish", "Bearish", or "Doji" for the gap candle
+      - candles_ago: How many candles ago the gap event occurred
+    """
+    n = len(df)
+    # Iterate backwards, starting from the last candle
+    for i in range(n-1, 0, -1):
+        open_val = df['Open'].iloc[i]
+        prev_close = df['Close'].iloc[i-1]
+        # Check for gap condition
+        if open_val > prev_close:
+            gap_direction = "Gap Up"
+        elif open_val < prev_close:
+            gap_direction = "Gap Down"
+        else:
+            continue  # No gap event
+        # Determine candle color for the gap candle:
+        current_open = df['Open'].iloc[i]
+        current_close = df['Close'].iloc[i]
+        if current_close > current_open:
+            candle_color = "Bullish"
+        elif current_close < current_open:
+            candle_color = "Bearish"
+        else:
+            candle_color = "Doji"
+        # Calculate how many candles ago this gap occurred:
+        gap_candles_ago = n - i
+        return {"gap_direction": gap_direction, "candle_color": candle_color, "candles_ago": gap_candles_ago}
+    return None
+
+gap_info = find_last_gap(data, lookback=20)
+# Fallback: Default gap value if no gap event found
+if gap_info is None:
+    gap_text = "No gap event detected in last 20 candles."
+else:
+    gap_text = f"{gap_info['gap_direction']} detected {gap_info['candles_ago']} candle(s) ago ({gap_info['candle_color']})."
 
 # ----------------------------------------------------
 # Step 8: Market Trend Detection using Last 3 Candles (Higher High & Higher Low)
 def detect_trend(df):
     if len(df) < 3:
         return "Unknown"
-    # Get the last 3 candles for Highs and Lows as numpy arrays
     last_highs = df['High'].tail(3).values
     last_lows = df['Low'].tail(3).values
-
     if last_highs[0] < last_highs[1] < last_highs[2] and last_lows[0] < last_lows[1] < last_lows[2]:
         return "Uptrend"
     elif last_highs[0] > last_highs[1] > last_highs[2] and last_lows[0] > last_lows[1] > last_lows[2]:
@@ -107,10 +140,8 @@ except Exception as e:
 def calculate_best_price(df, trend, window=3):
     recent = df.tail(window)
     if trend == "Uptrend":
-        # Best price = last swing low in uptrend
         return float(recent['Low'].min())
     elif trend == "Downtrend":
-        # Best price = last swing high in downtrend
         return float(recent['High'].max())
     else:
         return None
@@ -127,13 +158,12 @@ st.markdown("### 📋 Market Snapshot")
 
 col1, col2, col3 = st.columns(3)
 col1.metric("🕯️ Candle Strength", f"{candle_strength:.5f}" if candle_strength is not None else "N/A")
-col2.metric("🔀 Gap", f"{gap:.5f}" if gap is not None else "N/A")
+col2.metric("🔀 Gap Info", gap_text)
 col3.metric("📍 Best Price (Pullback)", f"{best_price:.5f}" if best_price is not None else "N/A")
 
 col4, col5 = st.columns(2)
 col4.metric("🟢 Support", f"{support:.5f}" if support is not None else "N/A")
 col5.metric("🔴 Resistance", f"{resistance:.5f}" if resistance is not None else "N/A")
-
 st.markdown(f"### 📊 Market Trend: `{trend}`")
 
 # ----------------------------------------------------
