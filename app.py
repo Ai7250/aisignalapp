@@ -9,34 +9,42 @@ st.title("📈 AI Price Action Signal (Demo)")
 # Step 1: Download data
 data = yf.download("BTC-USD", interval="1m", period="1d")
 
-# Step 2: Drop NaN rows early to avoid RSI errors
+# Step 2: Drop NaNs early
 data.dropna(inplace=True)
 
-# Step 3: Indicators (safely)
-try:
-    data['rsi'] = ta.momentum.RSIIndicator(data['Close']).rsi()
-    data['ema'] = ta.trend.EMAIndicator(data['Close'], window=10).ema_indicator()
-except Exception as e:
-    st.error("Error calculating indicators: " + str(e))
+# Step 3: Indicators (use only Series, not DataFrames)
+close_prices = data['Close']
+
+# RSI & EMA calculation
+rsi_series = ta.momentum.RSIIndicator(close=close_prices).rsi()
+ema_series = ta.trend.EMAIndicator(close=close_prices, window=10).ema_indicator()
+
+# Add to dataframe
+data['rsi'] = rsi_series
+data['ema'] = ema_series
 
 # Step 4: Create target column
 data['future'] = data['Close'].shift(-1)
 data['target'] = (data['future'] > data['Close']).astype(int)
+
+# Step 5: Clean again
 data.dropna(inplace=True)
 
-# Step 5: Features and labels
-X = data[['Open', 'High', 'Low', 'Close', 'rsi', 'ema']]
+# Step 6: Features & Labels
+features = ['Open', 'High', 'Low', 'Close', 'rsi', 'ema']
+X = data[features]
 y = data['target']
 
-# Step 6: Train model (skip last 50 rows)
+# Step 7: Train model (avoid last 50 rows for testing)
 model = RandomForestClassifier()
 model.fit(X[:-50], y[:-50])
 
-# Step 7: Predict next candle
-pred = model.predict([X.iloc[-1]])
+# Step 8: Prediction
+last_row = X.iloc[-1].values.reshape(1, -1)  # Proper shape (1,6)
+pred = model.predict(last_row)
 
-# Step 8: Display results
-st.subheader("Latest Candle:")
+# Step 9: Display Output
+st.subheader("📊 Latest Candle:")
 st.dataframe(data[['Open', 'High', 'Low', 'Close']].tail(1))
 
 if pred[0] == 1:
