@@ -73,7 +73,6 @@ def find_last_gap(df, lookback=20):
       - candles_ago: How many candles ago the gap event occurred
     """
     n = len(df)
-    # Optionally, iterate only over the last 'lookback' candles:
     start_index = max(n - lookback, 1)
     for i in range(n - 1, start_index - 1, -1):
         try:
@@ -81,14 +80,12 @@ def find_last_gap(df, lookback=20):
             prev_close = float(df['Close'].iloc[i - 1])
         except Exception as e:
             continue
-        # Check for gap event
         if open_val > prev_close:
             gap_direction = "Gap Up"
         elif open_val < prev_close:
             gap_direction = "Gap Down"
         else:
-            continue  # No gap event, continue checking
-        # Determine the candle color for the gap candle:
+            continue
         current_open = float(df['Open'].iloc[i])
         current_close = float(df['Close'].iloc[i])
         if current_close > current_open:
@@ -112,7 +109,6 @@ else:
 def detect_trend(df):
     if len(df) < 3:
         return "Unknown"
-    # Get the last 3 candles for Highs and Lows
     last_highs = df['High'].tail(3).values
     last_lows = df['Low'].tail(3).values
     if last_highs[0] < last_highs[1] < last_highs[2] and last_lows[0] < last_lows[1] < last_lows[2]:
@@ -143,10 +139,8 @@ except Exception as e:
 def calculate_best_price(df, trend, window=3):
     recent = df.tail(window)
     if trend == "Uptrend":
-        # Best price = last swing low in uptrend
         return float(recent['Low'].min())
     elif trend == "Downtrend":
-        # Best price = last swing high in downtrend
         return float(recent['High'].max())
     else:
         return None
@@ -162,13 +156,13 @@ except Exception as e:
 st.markdown("### 📋 Market Snapshot")
 
 col1, col2, col3 = st.columns(3)
-col1.metric("🕯️ Candle Strength", f"{candle_strength:.5f}" if candle_strength is not None else "N/A")
+col1.metric("🕯️ Candle Strength", f"{candle_strength:.5f}" if candle_strength is not None and pd.notnull(candle_strength) else "N/A")
 col2.metric("🔀 Gap Info", gap_text)
-col3.metric("📍 Best Price (Pullback)", f"{best_price:.5f}" if best_price is not None else "N/A")
+col3.metric("📍 Best Price (Pullback)", f"{best_price:.5f}" if best_price is not None and pd.notnull(best_price) else "N/A")
 
 col4, col5 = st.columns(2)
-col4.metric("🟢 Support", f"{support:.5f}" if support is not None else "N/A")
-col5.metric("🔴 Resistance", f"{resistance:.5f}" if resistance is not None else "N/A")
+col4.metric("🟢 Support", f"{support:.5f}" if support is not None and pd.notnull(support) else "N/A")
+col5.metric("🔴 Resistance", f"{resistance:.5f}" if resistance is not None and pd.notnull(resistance) else "N/A")
 st.markdown(f"### 📊 Market Trend: `{trend}`")
 
 # ----------------------------------------------------
@@ -183,11 +177,11 @@ try:
         name='Candles'
     )])
     fig.update_layout(title='EUR/USD 1m Candle Chart', xaxis_rangeslider_visible=False)
-    if support is not None:
+    if support is not None and pd.notnull(support):
         fig.add_hline(y=support, line_dash="dot", line_color="green", annotation_text="Support", opacity=0.4)
-    if resistance is not None:
+    if resistance is not None and pd.notnull(resistance):
         fig.add_hline(y=resistance, line_dash="dot", line_color="red", annotation_text="Resistance", opacity=0.4)
-    if best_price is not None:
+    if best_price is not None and pd.notnull(best_price):
         fig.add_hline(y=best_price, line_dash="dash", line_color="blue", annotation_text="Best Price Zone", opacity=0.5)
     st.plotly_chart(fig, use_container_width=True)
 except Exception as e:
