@@ -5,47 +5,43 @@ from ta.momentum import RSIIndicator
 from ta.trend import EMAIndicator
 from sklearn.ensemble import RandomForestClassifier
 
-st.title("📈 AI Price Action Signal (Demo)")
+st.title("💶 AI Signal for EUR/USD (1-Min Demo)")
 
-# Step 1: Download BTC 1-min data (last 1 day)
-data = yf.download("BTC-USD", interval="1m", period="1d")
+# Fetch EUR/USD 1-min data
+data = yf.download("EURUSD=X", interval="1m", period="1d")
 
-# Step 2: Drop rows with NaN
+# Check if data is empty
+if data.empty:
+    st.error("❌ Data fetch failed! EUR/USD 1m data not available.")
+    st.stop()
+
+# Preprocess
 data.dropna(inplace=True)
+close_prices = data['Close'].fillna(method="ffill").astype(float)
 
-# Step 3: Close as 1D float series
-close_prices = data['Close'].astype(float)
+# Indicators
+data['rsi'] = RSIIndicator(close=close_prices).rsi()
+data['ema'] = EMAIndicator(close=close_prices, window=10).ema_indicator()
 
-# Step 4: Calculate RSI & EMA
-rsi = RSIIndicator(close=close_prices).rsi()
-ema = EMAIndicator(close=close_prices, window=10).ema_indicator()
-
-# Step 5: Add indicators to data
-data['rsi'] = rsi
-data['ema'] = ema
-
-# Step 6: Target creation
+# Create target
 data['future'] = data['Close'].shift(-1)
 data['target'] = (data['future'] > data['Close']).astype(int)
-
-# Step 7: Drop any new NaNs
 data.dropna(inplace=True)
 
-# Step 8: Define features and labels
+# Features & Model
 features = ['Open', 'High', 'Low', 'Close', 'rsi', 'ema']
 X = data[features]
 y = data['target']
 
-# Step 9: Train-test split
 model = RandomForestClassifier()
 model.fit(X[:-50], y[:-50])
 
-# Step 10: Predict last signal
+# Prediction
 last_row = X.iloc[-1].values.reshape(1, -1)
 pred = model.predict(last_row)
 
-# Step 11: Display
-st.subheader("📊 Latest Candle")
+# Display latest candle & signal
+st.subheader("📊 Latest EUR/USD Candle")
 st.dataframe(data[['Open', 'High', 'Low', 'Close']].tail(1))
 
 if pred[0] == 1:
